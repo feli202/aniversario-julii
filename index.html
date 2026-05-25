@@ -348,7 +348,120 @@
       position: absolute; inset: 0; z-index: 2; pointer-events: none;
     }
 
-    /* ── Scroll reveal ── */
+    /* ── Music button ── */
+    #music-btn {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 100;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(197,184,240,0.12);
+      border: 1px solid rgba(197,184,240,0.3);
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: var(--white);
+      transition: background 0.3s, transform 0.2s, border-color 0.3s;
+      outline: none;
+    }
+    #music-btn:hover {
+      background: rgba(197,184,240,0.22);
+      transform: scale(1.08);
+    }
+    #music-btn.playing {
+      background: rgba(232,160,180,0.15);
+      border-color: rgba(232,160,180,0.4);
+    }
+    /* pulse rings */
+    #music-btn .ring {
+      position: absolute;
+      inset: -1px;
+      border-radius: 50%;
+      border: 1px solid rgba(197,184,240,0.35);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #music-btn.playing .ring:nth-child(1) { animation: ringPulse 2s ease-out infinite; }
+    #music-btn.playing .ring:nth-child(2) { animation: ringPulse 2s ease-out 0.6s infinite; }
+    #music-btn.playing .ring:nth-child(3) { animation: ringPulse 2s ease-out 1.2s infinite; }
+
+    /* intro overlay */
+    #music-intro {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: rgba(5,5,15,0.85);
+      backdrop-filter: blur(16px);
+      opacity: 1;
+      transition: opacity 0.8s ease;
+      pointer-events: all;
+    }
+    #music-intro.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .intro-symbol {
+      font-size: 32px;
+      color: var(--lavender);
+      letter-spacing: 0.4em;
+      animation: pulse 3s ease-in-out infinite;
+    }
+    .intro-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(20px, 4vw, 32px);
+      color: var(--white);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .intro-text em { color: var(--rose); }
+    .intro-btn {
+      margin-top: 8px;
+      padding: 14px 40px;
+      border-radius: 40px;
+      background: rgba(197,184,240,0.1);
+      border: 1px solid rgba(197,184,240,0.3);
+      color: var(--white);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+      backdrop-filter: blur(8px);
+      position: relative;
+      overflow: hidden;
+    }
+    .intro-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(232,160,180,0.15), rgba(197,184,240,0.15));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .intro-btn:hover { transform: scale(1.04); }
+    .intro-btn:hover::before { opacity: 1; }
+    .intro-sub {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.2em;
+    }
+
+    @keyframes ringPulse {
+      0%   { transform: scale(1);   opacity: 0.6; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
     .reveal {
       opacity: 0; transform: translateY(32px);
       transition: opacity 0.9s ease, transform 0.9s ease;
@@ -394,6 +507,22 @@
 
 <canvas id="cosmos"></canvas>
 <div class="hearts-container" id="hearts"></div>
+
+<!-- Music intro overlay -->
+<div id="music-intro">
+  <p class="intro-symbol">✦ ✧ ✦</p>
+  <p class="intro-text">hay algo especial<br>esperándote, <em>Juli</em></p>
+  <button class="intro-btn" id="intro-btn">✦ &nbsp; abrir &nbsp; ✦</button>
+  <p class="intro-sub">tocá para empezar</p>
+</div>
+
+<!-- Music button (fixed, bottom right) -->
+<button id="music-btn" title="música">
+  <span class="ring"></span>
+  <span class="ring"></span>
+  <span class="ring"></span>
+  <span id="music-icon">♪</span>
+</button>
 
 <!-- Lightbox -->
 <div id="lightbox">
@@ -527,31 +656,59 @@
   const FECHA_INICIO  = new Date("2025-05-25");
 
   /* ══════════════════════════════════
-     MÚSICA — arranca con el primer toque
+     MÚSICA — botón de entrada + toggle
   ══════════════════════════════════ */
-  let audio = null;
-  let musicStarted = false;
+  const audio = new Audio(MUSICA_URL);
+  audio.loop = true;
+  audio.volume = 0;
 
-  function startMusic() {
-    if (musicStarted || !MUSICA_URL) return;
-    musicStarted = true;
-    audio = new Audio(MUSICA_URL);
-    audio.loop = true;
-    audio.volume = 0;
-    audio.play().then(() => {
-      // fade in suave
-      let v = 0;
-      const fade = setInterval(() => {
-        v = Math.min(v + 0.02, 0.38);
-        audio.volume = v;
-        if (v >= 0.38) clearInterval(fade);
-      }, 80);
-    }).catch(() => {});
+  let playing = false;
+  const musicBtn  = document.getElementById('music-btn');
+  const musicIcon = document.getElementById('music-icon');
+  const introEl   = document.getElementById('music-intro');
+  const introBtn  = document.getElementById('intro-btn');
+
+  function fadeIn() {
+    let v = 0;
+    const t = setInterval(() => {
+      v = Math.min(v + 0.02, 0.38);
+      audio.volume = v;
+      if (v >= 0.38) clearInterval(t);
+    }, 60);
   }
 
-  document.addEventListener('scroll',     startMusic, { once: true });
-  document.addEventListener('touchstart', startMusic, { once: true });
-  document.addEventListener('click',      startMusic, { once: true });
+  function fadeOut() {
+    const t = setInterval(() => {
+      audio.volume = Math.max(0, audio.volume - 0.03);
+      if (audio.volume <= 0) { clearInterval(t); audio.pause(); }
+    }, 60);
+  }
+
+  introBtn.addEventListener('click', () => {
+    audio.play().then(() => {
+      playing = true;
+      fadeIn();
+      musicBtn.classList.add('playing');
+    }).catch(() => {});
+    introEl.classList.add('hidden');
+    setTimeout(() => introEl.style.display = 'none', 900);
+  });
+
+  musicBtn.addEventListener('click', () => {
+    if (playing) {
+      fadeOut();
+      playing = false;
+      musicBtn.classList.remove('playing');
+      musicIcon.textContent = '♩';
+    } else {
+      audio.play().then(() => {
+        playing = true;
+        fadeIn();
+        musicBtn.classList.add('playing');
+        musicIcon.textContent = '♪';
+      }).catch(() => {});
+    }
+  });
 
   /* ══════════════════════════════════
      FOTOS — automáticas desde fotos/
