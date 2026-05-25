@@ -557,33 +557,15 @@
      FOTOS — automáticas desde fotos/
   ══════════════════════════════════ */
   async function cargarFotos() {
-    let fotos = [];
-    try {
-      const res = await fetch('fotos/');
-      if (res.ok) {
-        const html = await res.text();
-        const matches = [...html.matchAll(/href="([^"]+\.(jpg|jpeg|png|webp|gif))"/gi)];
-        fotos = matches.map(m => 'fotos/' + m[1].replace(/^.*\//, ''));
-      }
-    } catch(e) {}
-
-    if (fotos.length === 0) {
-      const intentos = [];
-      for (let i = 1; i <= 30; i++)
-        for (const ext of ['jpg','jpeg','png','webp'])
-          intentos.push(`fotos/foto${i}.${ext}`);
-
-      const checks = await Promise.allSettled(
-        intentos.map(src => fetch(src, { method: 'HEAD' }).then(r => r.ok ? src : Promise.reject()))
-      );
-      fotos = checks
-        .filter(r => r.status === 'fulfilled').map(r => r.value)
-        .filter((src, i, arr) => {
-          const num = src.match(/foto(\d+)/)?.[1];
-          return !num || arr.findIndex(s => s.includes(`foto${num}.`)) === i;
-        });
-    }
-    return fotos;
+    return [
+      'fotos/foto1.jpeg','fotos/foto2.jpeg','fotos/foto3.jpeg',
+      'fotos/foto4.jpeg','fotos/foto5.jpeg','fotos/foto6.jpeg',
+      'fotos/foto7.jpeg','fotos/foto8.jpeg','fotos/foto9.jpeg',
+      'fotos/foto10.jpeg','fotos/foto11.jpeg','fotos/foto12.jpeg',
+      'fotos/foto13.jpeg','fotos/foto14.jpeg','fotos/foto15.jpeg',
+      'fotos/foto16.jpeg','fotos/foto17.jpeg','fotos/foto18.jpeg',
+      'fotos/foto19.jpeg'
+    ];
   }
 
   const track = document.getElementById('filmstrip-track');
